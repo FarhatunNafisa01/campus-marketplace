@@ -62,6 +62,22 @@ export const getUserProfile = (id) => api.get(`/users/${id}`);
 export const updateUserProfile = (id, data) => api.put(`/users/${id}`, data);
 export const updatePassword = (id, data) => api.put(`/users/${id}/password`, data);
 
+// ✅ TAMBAHAN BARU: Upload & Delete Foto Profil
+export const uploadProfilePhoto = (userId, file) => {
+  const formData = new FormData();
+  formData.append('foto_profil', file);
+  
+  return api.post(`/users/${userId}/upload-photo`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+};
+
+export const deleteProfilePhoto = (userId) => {
+  return api.delete(`/users/${userId}/photo`);
+};
+
 // TRANSACTIONS API
 export const getTransactionsByBuyer = (userId) => api.get(`/transactions/buyer/${userId}`);
 
