@@ -91,4 +91,9 @@ export const isAuthenticated = () => {
   return !!localStorage.getItem('token');
 };
 
+
+//Fungsi Buat Produk
+export const createProduct = (productData) => 
+  api.post('/products', productData);
+
 export default api;

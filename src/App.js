@@ -4,6 +4,7 @@ import HomePage from './components/HomePage';
 import LoginPage from './components/LoginPage';
 import RegisterPage from './components/RegisterPage';
 import ProfilePage from './components/ProfilePage';
+import SellPage from './components/SellPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -14,20 +15,29 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-        
+
         {/* Protected Routes */}
-        <Route 
-          path="/profile" 
+        <Route
+          path="/profile"
           element={
             <ProtectedRoute>
               <ProfilePage />
             </ProtectedRoute>
-          } 
+          }
         />
-        
-        {/* 404 */}
-        <Route 
-          path="*" 
+
+        <Route
+          path="/jual"
+          element={
+            <ProtectedRoute>
+              <SellPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 404 - Harus paling akhir */}
+        <Route
+          path="*"
           element={
             <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#EEC6CA' }}>
               <div className="text-center bg-white p-8 rounded-2xl shadow-xl max-w-md">
@@ -39,7 +49,7 @@ function App() {
                 </a>
               </div>
             </div>
-          } 
+          }
         />
       </Routes>
     </BrowserRouter>

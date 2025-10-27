@@ -8,6 +8,8 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Semua');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarMode, setSidebarMode] = useState(null); // 'kategori' atau 'jual'
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -21,7 +23,6 @@ export default function HomePage() {
     { name: 'Lainnya', icon: Utensils, count: 72 }
   ];
 
-  // Fetch products dan cek user saat component dimuat
   useEffect(() => {
     fetchProducts();
     checkUser();
@@ -38,7 +39,6 @@ export default function HomePage() {
       setLoading(true);
       const response = await getProducts();
       
-      // Transform data dari database ke format yang dibutuhkan
       const transformedData = response.data.map(product => ({
         id: product.id_produk,
         name: product.nama_barang,
@@ -69,10 +69,8 @@ export default function HomePage() {
 
   const handleChatSeller = () => {
     if (!currentUser) {
-      // Jika belum login, redirect ke login
       navigate('/login');
     } else {
-      // Jika sudah login, tampilkan pesan (nanti bisa diganti dengan fitur chat)
       alert('Fitur chat akan segera hadir!');
     }
   };
@@ -81,16 +79,29 @@ export default function HomePage() {
     if (!currentUser) {
       navigate('/login');
     } else {
-      // Navigate ke halaman posting produk (coming soon)
-      alert('Fitur posting produk akan segera hadir!');
+      navigate('/jual');
     }
+  };
+
+  const handleOpenSidebar = (mode) => {
+    setSidebarMode(mode);
+    setSidebarOpen(true);
+  };
+
+  const handleCloseSidebar = () => {
+    setSidebarOpen(false);
+    setTimeout(() => setSidebarMode(null), 300);
+  };
+
+  const handleSelectCategory = (categoryName) => {
+    setSelectedCategory(categoryName);
+    handleCloseSidebar();
   };
 
   const filteredProducts = selectedCategory === 'Semua' 
     ? featuredProducts 
     : featuredProducts.filter(p => p.category === selectedCategory);
 
-  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#EEC6CA' }}>
@@ -102,7 +113,6 @@ export default function HomePage() {
     );
   }
 
-  // Error state
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#EEC6CA' }}>
@@ -125,10 +135,9 @@ export default function HomePage() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#EEC6CA' }}>
       {/* Header */}
-      <header className="bg-white shadow-md sticky top-0 z-50">
+      <header className="bg-white shadow-md sticky top-0 z-40">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            {/* Logo */}
             <Link to="/" className="flex items-center space-x-3">
               <div className="p-2 rounded-xl" style={{ backgroundColor: '#A4C3B2' }}>
                 <ShoppingBag className="text-white" size={28} />
@@ -139,18 +148,25 @@ export default function HomePage() {
               </div>
             </Link>
             
-            {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center space-x-6">
               <Link to="/" className="text-gray-700 transition font-medium hover:text-opacity-80" style={{ color: '#A4C3B2' }}>Beranda</Link>
-              <a href="#kategori" className="text-gray-700 transition font-medium hover:opacity-80">Kategori</a>
-              <a href="#jual" className="text-gray-700 transition font-medium hover:opacity-80">Jual Barang</a>
+              <button 
+                onClick={() => handleOpenSidebar('kategori')}
+                className="text-gray-700 transition font-medium hover:opacity-80 bg-transparent border-none cursor-pointer"
+              >
+                Kategori
+              </button>
+              <button 
+                onClick={handleJualBarang}
+                className="text-gray-700 transition font-medium hover:opacity-80 bg-transparent border-none cursor-pointer"
+              >
+                Jual Barang
+              </button>
             </nav>
 
-            {/* Right Side Actions */}
             <div className="flex items-center space-x-4">
               {currentUser ? (
                 <>
-                  {/* User sudah login */}
                   <button className="relative p-2 hover:bg-gray-100 rounded-full transition hidden sm:block">
                     <MessageSquare size={22} className="text-gray-700" />
                     <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
@@ -169,7 +185,6 @@ export default function HomePage() {
                 </>
               ) : (
                 <>
-                  {/* User belum login */}
                   <Link to="/login" className="hidden sm:inline text-gray-700 hover:opacity-80 font-medium">
                     Login
                   </Link>
@@ -180,7 +195,6 @@ export default function HomePage() {
                 </>
               )}
               
-              {/* Mobile Menu Button */}
               <button 
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="md:hidden p-2 hover:bg-gray-100 rounded-lg"
@@ -190,13 +204,28 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Mobile Menu */}
           {isMobileMenuOpen && (
             <div className="md:hidden mt-4 pb-4 border-t pt-4">
               <nav className="flex flex-col space-y-3">
                 <Link to="/" className="transition font-medium py-2" style={{ color: '#A4C3B2' }}>Beranda</Link>
-                <a href="#kategori" className="text-gray-700 transition font-medium py-2 hover:opacity-80">Kategori</a>
-                <a href="#jual" className="text-gray-700 transition font-medium py-2 hover:opacity-80">Jual Barang</a>
+                <button 
+                  onClick={() => {
+                    handleOpenSidebar('kategori');
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="text-gray-700 transition font-medium py-2 hover:opacity-80 text-left bg-transparent border-none cursor-pointer"
+                >
+                  Kategori
+                </button>
+                <button 
+                  onClick={() => {
+                    handleJualBarang();
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="text-gray-700 transition font-medium py-2 hover:opacity-80 text-left bg-transparent border-none cursor-pointer"
+                >
+                  Jual Barang
+                </button>
                 
                 {currentUser ? (
                   <>
@@ -231,7 +260,6 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* Search Bar */}
           <div className="mt-4">
             <div className="relative max-w-2xl mx-auto">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
@@ -247,6 +275,103 @@ export default function HomePage() {
           </div>
         </div>
       </header>
+
+      {/* Sidebar Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
+          onClick={handleCloseSidebar}
+          style={{ animation: 'fadeIn 0.3s ease-in' }}
+        />
+      )}
+
+      {/* Sidebar */}
+      <div 
+        className={`fixed right-0 top-0 h-full w-80 bg-white shadow-2xl z-50 transform transition-transform duration-300 overflow-y-auto ${
+          sidebarOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-gray-800">
+              {sidebarMode === 'kategori' ? 'Pilih Kategori' : 'Mulai Berjualan'}
+            </h2>
+            <button 
+              onClick={handleCloseSidebar}
+              className="p-2 hover:bg-gray-100 rounded-lg transition"
+            >
+              <X size={24} className="text-gray-700" />
+            </button>
+          </div>
+
+          {sidebarMode === 'kategori' && (
+            <div className="space-y-3">
+              {categories.map((category) => {
+                const Icon = category.icon;
+                return (
+                  <button
+                    key={category.name}
+                    onClick={() => handleSelectCategory(category.name)}
+                    className={`w-full p-4 rounded-lg transition-all flex items-center space-x-3 ${
+                      selectedCategory === category.name
+                        ? 'text-white shadow-lg'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                    style={selectedCategory === category.name ? { backgroundColor: '#A4C3B2' } : {}}
+                  >
+                    <Icon size={24} />
+                    <div className="text-left flex-1">
+                      <p className="font-semibold">{category.name}</p>
+                      <p className="text-sm opacity-75">{category.count} items</p>
+                    </div>
+                    {selectedCategory === category.name && <ChevronRight size={20} />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {sidebarMode === 'jual' && (
+            <div className="space-y-4">
+              <div className="bg-gradient-to-br p-6 rounded-lg text-white" style={{ background: 'linear-gradient(135deg, #A4C3B2 0%, #8fb3a0 100%)' }}>
+                <h3 className="text-xl font-bold mb-2">Jual Barang Kamu</h3>
+                <p className="text-sm opacity-90 mb-4">Dapatkan uang tambahan dengan menjual barang bekas Anda di CampusMarket</p>
+                <ul className="space-y-2 text-sm mb-4">
+                  <li>✓ Gratis untuk semua mahasiswa</li>
+                  <li>✓ Proses verifikasi cepat</li>
+                  <li>✓ Pembayaran aman</li>
+                </ul>
+              </div>
+
+              <button
+                onClick={() => {
+                  if (!currentUser) {
+                    navigate('/login');
+                  } else {
+                    navigate('/jual');
+                  }
+                  handleCloseSidebar();
+                }}
+                className="w-full text-white py-3 rounded-lg font-semibold hover:opacity-90 transition flex items-center justify-center space-x-2"
+                style={{ backgroundColor: '#A4C3B2' }}
+              >
+                <span>Mulai Posting Produk</span>
+                <ChevronRight size={20} />
+              </button>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="font-semibold text-blue-900 mb-2">💡 Tips Penjualan</h4>
+                <ul className="text-sm text-blue-800 space-y-1">
+                  <li>• Gunakan foto produk yang jelas</li>
+                  <li>• Deskripsikan kondisi dengan detail</li>
+                  <li>• Atur harga kompetitif</li>
+                  <li>• Respond cepat terhadap pembeli</li>
+                </ul>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Hero Section */}
       <section className="container mx-auto px-4 py-8">
@@ -271,15 +396,24 @@ export default function HomePage() {
       </section>
 
       {/* Categories */}
-      <section id="kategori" className="container mx-auto px-4 py-6">
-        <h3 className="text-2xl font-bold text-gray-800 mb-6">Kategori Populer</h3>
+      <section className="container mx-auto px-4 py-6">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-2xl font-bold text-gray-800">Kategori Populer</h3>
+          <button 
+            onClick={() => handleOpenSidebar('kategori')}
+            className="md:hidden text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition"
+            style={{ backgroundColor: '#A4C3B2' }}
+          >
+            Lihat Semua
+          </button>
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           {categories.map((category) => {
             const Icon = category.icon;
             return (
               <button
                 key={category.name}
-                onClick={() => setSelectedCategory(category.name)}
+                onClick={() => handleSelectCategory(category.name)}
                 className={`p-6 rounded-xl transition-all ${
                   selectedCategory === category.name
                     ? 'text-white shadow-lg scale-105'
@@ -385,8 +519,8 @@ export default function HomePage() {
               <h4 className="font-bold text-lg mb-4">Navigasi</h4>
               <ul className="space-y-2 text-gray-400 text-sm">
                 <li><Link to="/" className="hover:text-white transition">Beranda</Link></li>
-                <li><a href="#kategori" className="hover:text-white transition">Kategori</a></li>
-                <li><a href="#jual" className="hover:text-white transition">Jual Barang</a></li>
+                <li><button onClick={() => handleOpenSidebar('kategori')} className="hover:text-white transition bg-transparent border-none cursor-pointer">Kategori</button></li>
+                <li><button onClick={handleJualBarang} className="hover:text-white transition bg-transparent border-none cursor-pointer">Jual Barang</button></li>
                 <li><a href="#bantuan" className="hover:text-white transition">Bantuan</a></li>
               </ul>
             </div>
@@ -403,6 +537,13 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
+
+      <style jsx>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 }

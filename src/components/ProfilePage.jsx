@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { User, Mail, Phone, MapPin, Edit2, Save, X, ShoppingBag, MessageSquare, Eye, Calendar, Camera, Lock, Package, ArrowLeft, BookOpen, AlertCircle, Trash2 } from 'lucide-react';
+import axios from 'axios';
 
 import { 
   getUserProfile, 
   updateUserProfile, 
   updatePassword, 
-  uploadProfilePhoto,      
-  deleteProfilePhoto,      
+  uploadProfilePhoto,      // ← TAMBAH
+  deleteProfilePhoto,      // ← TAMBAH
+  getProductsBySeller, 
+  getTransactionsByBuyer, 
   getAuthUser,
   logout 
 } from '../services/api';
@@ -21,6 +24,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   
+  // Ref untuk input file
   const fileInputRef = useRef(null);
   
   const currentUser = getAuthUser();
@@ -70,9 +74,11 @@ export default function ProfilePage() {
 
       const user = response.data;
       
+      // Handle foto profil path
       let fotoUrl = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400';
       
       if (user.foto_profil && user.foto_profil !== 'default-avatar.jpg') {
+        // Jika foto_profil sudah berupa path lengkap (misal: /uploads/profiles/...)
         fotoUrl = user.foto_profil.startsWith('http') 
           ? user.foto_profil 
           : `http://localhost:5000${user.foto_profil}`;
@@ -120,7 +126,7 @@ export default function ProfilePage() {
 
   const fetchStats = async () => {
     try {
-      const response = await getUserProfile(userId);
+      const response = await axios.get(`http://localhost:5000/api/users/${userId}`);
       setStats({
         totalProduk: response.data.total_produk || 0,
         produkTerjual: response.data.produk_terjual || 0,
@@ -134,10 +140,8 @@ export default function ProfilePage() {
 
   const fetchRiwayatPenjualan = async () => {
     try {
-      // Nanti bisa diganti pakai function dari api.js
-      const response = await fetch(`http://localhost:5000/api/products/seller/${userId}`);
-      const data = await response.json();
-      const transformed = data.map(item => ({
+      const response = await axios.get(`http://localhost:5000/api/products/seller/${userId}`);
+      const transformed = response.data.map(item => ({
         id: item.id_produk,
         nama: item.nama_barang,
         harga: `Rp ${Number(item.harga).toLocaleString('id-ID')}`,
@@ -154,9 +158,8 @@ export default function ProfilePage() {
 
   const fetchRiwayatPembelian = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/transactions/buyer/${userId}`);
-      const data = await response.json();
-      const transformed = data.map(item => ({
+      const response = await axios.get(`http://localhost:5000/api/transactions/buyer/${userId}`);
+      const transformed = response.data.map(item => ({
         id: item.id_transaksi,
         nama: item.nama_barang,
         harga: `Rp ${Number(item.harga_disepakati).toLocaleString('id-ID')}`,
@@ -177,6 +180,7 @@ export default function ProfilePage() {
     }
   };
 
+  // Handler untuk upload foto
   const handlePhotoClick = () => {
     fileInputRef.current?.click();
   };
@@ -185,12 +189,14 @@ export default function ProfilePage() {
     const file = e.target.files[0];
     if (!file) return;
 
+    // Validasi tipe file
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
     if (!allowedTypes.includes(file.type)) {
       alert('Hanya file JPG, JPEG, dan PNG yang diperbolehkan!');
       return;
     }
 
+    // Validasi ukuran file (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       alert('Ukuran file maksimal 5MB!');
       return;
@@ -199,9 +205,22 @@ export default function ProfilePage() {
     try {
       setUploadingPhoto(true);
 
-      const response = await uploadProfilePhoto(userId, file);
+      const formData = new FormData();
+      formData.append('foto_profil', file);
+
+      const response = await axios.post(
+        `http://localhost:5000/api/users/${userId}/upload-photo`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      );
+
       console.log('Upload response:', response.data);
 
+      // Update state dengan foto baru
       const newPhotoUrl = `http://localhost:5000${response.data.foto_profil}`;
       console.log('New photo URL:', newPhotoUrl);
       
@@ -210,6 +229,7 @@ export default function ProfilePage() {
 
       alert('Foto profil berhasil diupdate!');
       
+      // Force refresh gambar dengan menambahkan timestamp
       const img = new Image();
       img.src = newPhotoUrl + '?t=' + Date.now();
       
@@ -218,31 +238,35 @@ export default function ProfilePage() {
       alert(error.response?.data?.error || 'Gagal mengupload foto. Coba lagi.');
     } finally {
       setUploadingPhoto(false);
+      // Reset input file
       e.target.value = '';
     }
   };
 
-  const handleDeletePhoto = async () => {
-    if (!window.confirm('Yakin ingin menghapus foto profil?')) return;
+     const handleDeletePhoto = async () => {
+  if (!window.confirm('Yakin ingin menghapus foto profil?')) return;
 
-    try {
-      setUploadingPhoto(true);
+  try {
+    setUploadingPhoto(true);
 
-      await deleteProfilePhoto(userId);
+    // ✅ UBAH INI - pakai function dari api.js
+    await deleteProfilePhoto(userId);
 
-      const defaultPhoto = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400';
-      setProfileData(prev => ({...prev, foto_profil: defaultPhoto}));
-      setEditData(prev => ({...prev, foto_profil: defaultPhoto}));
+    // Set kembali ke default
+    const defaultPhoto = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400';
+    setProfileData(prev => ({...prev, foto_profil: defaultPhoto}));
+    setEditData(prev => ({...prev, foto_profil: defaultPhoto}));
 
-      alert('Foto profil berhasil dihapus!');
-      
-      window.location.reload();
-    } catch (error) {
-      console.error('Error deleting photo:', error);
-      alert('Gagal menghapus foto. Coba lagi.');
-    } finally {
-      setUploadingPhoto(false);
-    }
+    alert('Foto profil berhasil dihapus!');
+    
+    // Refresh halaman untuk memastikan foto ter-update
+    window.location.reload();
+  } catch (error) {
+    console.error('Error deleting photo:', error);
+    alert('Gagal menghapus foto. Coba lagi.');
+  } finally {
+    setUploadingPhoto(false);
+  }
   };
 
   const handleEdit = () => {
@@ -257,7 +281,7 @@ export default function ProfilePage() {
 
   const handleSave = async () => {
     try {
-      await updateUserProfile(userId, {
+      await axios.put(`http://localhost:5000/api/users/${userId}`, {
         nama: editData.nama,
         no_telp: editData.no_telp,
         alamat: editData.alamat,
@@ -284,7 +308,7 @@ export default function ProfilePage() {
     }
     
     try {
-      await updatePassword(userId, {
+      await axios.put(`http://localhost:5000/api/users/${userId}/password`, {
         oldPassword: passwordData.passwordLama,
         newPassword: passwordData.passwordBaru
       });
@@ -321,6 +345,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#EEC6CA' }}>
+      {/* Header */}
       <header className="bg-white shadow-md sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -343,17 +368,15 @@ export default function ProfilePage() {
 
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Sidebar - Profile Card */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-xl shadow-md p-6">
+              {/* Profile Picture */}
               <div className="relative mb-4">
                 <img 
-                  src={`${profileData.foto_profil}${profileData.foto_profil.includes('http://localhost:5000') ? '?t=' + Date.now() : ''}`}
+                  src={profileData.foto_profil} 
                   alt="Profile"
                   className="w-32 h-32 rounded-full mx-auto object-cover border-4 border-gray-100"
-                  onError={(e) => {
-                    console.error('Image load error:', e);
-                    e.target.src = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400';
-                  }}
                 />
                 {uploadingPhoto && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full">
@@ -381,6 +404,7 @@ export default function ProfilePage() {
                     </button>
                   )}
                 </div>
+                {/* Hidden file input */}
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -400,6 +424,7 @@ export default function ProfilePage() {
                 </div>
               </div>
 
+              {/* Stats */}
               <div className="grid grid-cols-2 gap-4 mb-4 pt-4 border-t">
                 <div className="text-center">
                   <p className="text-2xl font-bold" style={{ color: '#A4C3B2' }}>{stats.totalProduk}</p>
@@ -411,6 +436,7 @@ export default function ProfilePage() {
                 </div>
               </div>
 
+              {/* Action Buttons */}
               <div className="space-y-2">
                 {!isEditing ? (
                   <>
@@ -453,7 +479,9 @@ export default function ProfilePage() {
             </div>
           </div>
 
+          {/* Main Content - Rest remains the same */}
           <div className="lg:col-span-2">
+            {/* Tabs */}
             <div className="bg-white rounded-xl shadow-md mb-6">
               <div className="flex border-b overflow-x-auto">
                 <button
@@ -500,6 +528,7 @@ export default function ProfilePage() {
                 </button>
               </div>
 
+              {/* Tab Content - Same as before */}
               <div className="p-6">
                 {activeTab === 'profil' && (
                   <div className="space-y-4">
@@ -605,6 +634,7 @@ export default function ProfilePage() {
                   </div>
                 )}
 
+                {/* Penjualan Tab */}
                 {activeTab === 'penjualan' && (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between mb-4">
@@ -644,6 +674,7 @@ export default function ProfilePage() {
                   </div>
                 )}
 
+                {/* Pembelian Tab */}
                 {activeTab === 'pembelian' && (
                   <div className="space-y-4">
                     <h3 className="text-lg font-bold text-gray-800 mb-4">Riwayat Pembelian</h3>
@@ -681,6 +712,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
+      {/* Password Modal */}
       {showPasswordModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 max-w-md w-full">
@@ -741,6 +773,7 @@ export default function ProfilePage() {
         </div>
       )}
 
+      {/* Transaction Detail Modal */}
       {showTransactionDetail && selectedTransaction && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white rounded-xl p-6 max-w-2xl w-full my-8">
@@ -842,6 +875,7 @@ export default function ProfilePage() {
         </div>
       )}
 
+      {/* Footer */}
       <footer className="bg-gray-800 text-white py-8 mt-12">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
