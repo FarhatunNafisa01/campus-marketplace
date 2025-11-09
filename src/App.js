@@ -6,6 +6,9 @@ import RegisterPage from './components/RegisterPage';
 import ProfilePage from './components/ProfilePage';
 import SellPage from './components/SellPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import ForgotPasswordPage from './components/ForgotPasswordPage';
+import ResetPasswordPage from './components/ResetPasswordPage';
+import ChatPage from './components/ChatPage';
 
 function App() {
   return (
@@ -15,7 +18,7 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-
+        <Route path="/chat" element={<ChatPage />} />
         {/* Protected Routes */}
         <Route
           path="/profile"
@@ -34,6 +37,11 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        {/*untuk Lupa Password dan Reset Password?*/}
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+
 
         {/* 404 - Harus paling akhir */}
         <Route

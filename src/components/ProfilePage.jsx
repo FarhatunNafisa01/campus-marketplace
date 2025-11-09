@@ -75,7 +75,7 @@ export default function ProfilePage() {
       const user = response.data;
       
       // Handle foto profil path
-      let fotoUrl = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400';
+      let fotoUrl = 'https://i.pinimg.com/1200x/92/b2/49/92b24967cf34c2f5b82ca1ec6268fad4.jpg';
       
       if (user.foto_profil && user.foto_profil !== 'default-avatar.jpg') {
         // Jika foto_profil sudah berupa path lengkap (misal: /uploads/profiles/...)

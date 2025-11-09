@@ -91,9 +91,30 @@ export const isAuthenticated = () => {
   return !!localStorage.getItem('token');
 };
 
+// Forgot Password
+export const forgotPassword = (email) => {
+  return api.post('/auth/forgot-password', { email });
+};
+
+// Reset Password
+export const resetPassword = (token, password) => {
+  return api.post('/auth/reset-password', { token, password });
+};
+
+// Validate Token
+export const validateResetToken = (token) => {
+  return api.get(`/auth/validate-token/${token}`);
+};
 
 //Fungsi Buat Produk
 export const createProduct = (productData) => 
   api.post('/products', productData);
+
+// Chat endpoints
+export const getConversations = (userId) => api.get(`/chat/conversations/${userId}`);
+export const getMessages = (conversationId) => api.get(`/chat/messages/${conversationId}`);
+export const createConversation = (data) => api.post('/chat/conversations', data);
+export const sendMessage = (data) => api.post('/chat/messages', data);
+export const markAsRead = (conversationId, userId) => api.put(`/chat/messages/read/${conversationId}/${userId}`);
 
 export default api;

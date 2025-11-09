@@ -3,8 +3,10 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/database');
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { validateRegister, validateLogin } = require('../middleware/validation');
+const { sendResetPasswordEmail } = require('../config/email');
 
 // Generate JWT Token
 const generateToken = (user) => {
@@ -178,6 +180,188 @@ router.get('/verify', async (req, res) => {
     console.error('Verify token error:', error);
     res.status(500).json({ message: 'Terjadi kesalahan pada server' });
   }
+
+
+
 });
+
+// ============================================
+// 📧 FORGOT PASSWORD - Kirim Email Reset
+// ============================================
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    console.log('🔍 Forgot password request for:', email);
+
+    // Validasi input
+    if (!email) {
+      return res.status(400).json({ message: 'Email harus diisi' });
+    }
+
+    // Cek apakah user exist
+    const [users] = await db.query(
+      'SELECT id_pengguna, nama, email FROM pengguna WHERE email = ?',
+      [email]
+    );
+
+    if (users.length === 0) {
+      // Jangan kasih tau kalau email tidak terdaftar (security)
+      return res.json({ 
+        message: 'Jika email terdaftar, link reset password akan dikirim' 
+      });
+    }
+
+    const user = users[0];
+
+    // Generate reset token (random 32 bytes)
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    
+    // Hash token untuk disimpan di database (security)
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(resetToken)
+      .digest('hex');
+
+    // Token berlaku 1 jam
+    const resetExpires = new Date(Date.now() + 3600000);
+
+    // Simpan token ke database
+    await db.query(
+      'UPDATE pengguna SET reset_token = ?, reset_expires = ? WHERE id_pengguna = ?',
+      [hashedToken, resetExpires, user.id_pengguna]
+    );
+
+    console.log('✅ Token generated for user:', user.id_pengguna);
+
+    // Kirim email
+    try {
+      await sendResetPasswordEmail(email, resetToken);
+      console.log('✅ Reset email sent to:', email);
+    } catch (emailError) {
+      console.error('❌ Failed to send email:', emailError);
+      // Hapus token jika gagal kirim email
+      await db.query(
+        'UPDATE pengguna SET reset_token = NULL, reset_expires = NULL WHERE id_pengguna = ?',
+        [user.id_pengguna]
+      );
+      return res.status(500).json({ 
+        message: 'Gagal mengirim email. Pastikan email valid.' 
+      });
+    }
+
+    res.json({ 
+      message: 'Link reset password telah dikirim ke email Anda',
+      success: true
+    });
+
+  } catch (error) {
+    console.error('❌ Forgot password error:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan pada server' });
+  }
+});
+
+// ============================================
+// 🔐 RESET PASSWORD - Set Password Baru
+// ============================================
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    console.log('🔐 Reset password request with token');
+
+    // Validasi input
+    if (!token || !password) {
+      return res.status(400).json({ message: 'Token dan password harus diisi' });
+    }
+
+    // Validasi password
+    if (password.length < 6) {
+      return res.status(400).json({ message: 'Password minimal 6 karakter' });
+    }
+
+    // Hash token yang diterima untuk dicocokkan dengan database
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(token)
+      .digest('hex');
+
+    // Cari user dengan token yang valid dan belum expired
+    const [users] = await db.query(
+      'SELECT id_pengguna, nama, email FROM pengguna WHERE reset_token = ? AND reset_expires > NOW()',
+      [hashedToken]
+    );
+
+    if (users.length === 0) {
+      return res.status(400).json({ 
+        message: 'Token tidak valid atau sudah kadaluarsa' 
+      });
+    }
+
+    const user = users[0];
+    console.log('✅ Valid token for user:', user.id_pengguna);
+
+    // Hash password baru
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Update password dan hapus token
+    await db.query(
+      `UPDATE pengguna 
+       SET kata_sandi = ?, 
+           reset_token = NULL, 
+           reset_expires = NULL 
+       WHERE id_pengguna = ?`,
+      [hashedPassword, user.id_pengguna]
+    );
+
+    console.log('✅ Password reset successful for user:', user.id_pengguna);
+
+    res.json({ 
+      message: 'Password berhasil direset. Silakan login dengan password baru.',
+      success: true
+    });
+
+  } catch (error) {
+    console.error('❌ Reset password error:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan pada server' });
+  }
+});
+
+// ============================================
+// 🔍 VALIDATE TOKEN - Cek apakah token valid
+// ============================================
+router.get('/validate-token/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(token)
+      .digest('hex');
+
+    const [users] = await db.query(
+      'SELECT id_pengguna FROM pengguna WHERE reset_token = ? AND reset_expires > NOW()',
+      [hashedToken]
+    );
+
+    if (users.length === 0) {
+      return res.status(400).json({ 
+        valid: false,
+        message: 'Token tidak valid atau sudah kadaluarsa' 
+      });
+    }
+
+    res.json({ 
+      valid: true,
+      message: 'Token valid'
+    });
+
+  } catch (error) {
+    console.error('❌ Validate token error:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan pada server' });
+  }
+});
+
+
 
 module.exports = router;

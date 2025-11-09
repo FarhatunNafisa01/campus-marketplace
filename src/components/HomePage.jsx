@@ -15,13 +15,13 @@ export default function HomePage() {
   const [error, setError] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
 
-  const categories = [
-    { name: 'Semua', icon: ShoppingBag, count: 234 },
-    { name: 'Buku', icon: Book, count: 89 },
-    { name: 'Elektronik', icon: Laptop, count: 45 },
-    { name: 'Kost', icon: Home, count: 28 },
-    { name: 'Lainnya', icon: Utensils, count: 72 }
-  ];
+  const [categories, setCategories] = useState([
+    { name: 'Semua', icon: ShoppingBag, count: 0 },
+    { name: 'Buku', icon: Book, count: 0 },
+    { name: 'Elektronik', icon: Laptop, count: 0 },
+    { name: 'Kost', icon: Home, count: 0 },
+    { name: 'Lainnya', icon: Utensils, count: 0 }
+  ]);
 
   useEffect(() => {
     fetchProducts();
@@ -38,20 +38,60 @@ export default function HomePage() {
     try {
       setLoading(true);
       const response = await getProducts();
-      
-      const transformedData = response.data.map(product => ({
-        id: product.id_produk,
-        name: product.nama_barang,
-        price: `Rp ${Number(product.harga).toLocaleString('id-ID')}`,
-        condition: product.kondisi === 'bekas' ? 'Bekas' : 'Baru',
-        location: product.lokasi,
-        image: product.url_foto || 'https://images.unsplash.com/photo-1560393464-5c69a73c5770?w=400',
-        seller: product.nama_penjual,
-        views: product.jumlah_dilihat,
-        negotiable: product.bisa_nego,
-        category: product.nama_kategori
-      }));
-      
+
+      console.log('📦 Raw products from API:', response.data); // DEBUG
+
+      const transformedData = response.data.map(product => {
+        // 🔥 FIX: Konversi path ke URL lengkap
+        let imageUrl = 'https://images.unsplash.com/photo-1560393464-5c69a73c5770?w=400'; // default
+
+        if (product.url_foto) {
+          // Jika sudah URL lengkap (mulai dengan http)
+          if (product.url_foto.startsWith('http')) {
+            imageUrl = product.url_foto;
+          }
+          // Jika path relatif (misal: /uploads/products/...)
+          else {
+            const cleanPath = product.url_foto.startsWith('/')
+              ? product.url_foto
+              : '/' + product.url_foto;
+            imageUrl = `http://localhost:5000${cleanPath}`;
+          }
+        }
+
+        console.log(`📸 Product: ${product.nama_barang}`);
+        console.log(`   DB path: ${product.url_foto}`);
+        console.log(`   Final URL: ${imageUrl}`);
+
+        return {
+          id: product.id_produk,
+          name: product.nama_barang,
+          price: `Rp ${Number(product.harga).toLocaleString('id-ID')}`,
+          condition: product.kondisi === 'bekas' ? 'Bekas' : 'Baru',
+          location: product.lokasi,
+          image: imageUrl, // ✅ URL lengkap
+          seller: product.nama_penjual,
+          views: product.jumlah_dilihat,
+          negotiable: product.bisa_nego,
+          category: product.nama_kategori
+        };
+      });
+
+      console.log('✅ Transformed products:', transformedData);
+
+      // Update kategori dengan jumlah real dari data
+      const categoryCounts = {
+        'Semua': transformedData.length,
+        'Buku': transformedData.filter(p => p.category === 'Buku').length,
+        'Elektronik': transformedData.filter(p => p.category === 'Elektronik').length,
+        'Kost': transformedData.filter(p => p.category === 'Kost').length,
+        'Lainnya': transformedData.filter(p => p.category === 'Lainnya').length
+      };
+
+      setCategories(prev => prev.map(cat => ({
+        ...cat,
+        count: categoryCounts[cat.name] || 0
+      })));
       setFeaturedProducts(transformedData);
       setLoading(false);
     } catch (error) {
@@ -67,11 +107,25 @@ export default function HomePage() {
     }
   };
 
-  const handleChatSeller = () => {
+  const handleChatSeller = async (product) => {
     if (!currentUser) {
       navigate('/login');
-    } else {
-      alert('Fitur chat akan segera hadir!');
+      return;
+    }
+
+    try {
+      // Create or get conversation
+      const conversationData = {
+        id_pembeli: currentUser.id,
+        id_penjual: product.sellerId, // Pastikan ada sellerId di data produk
+        id_produk: product.id
+      };
+
+      await createConversation(conversationData);
+      navigate('/chat');
+    } catch (error) {
+      console.error('Error creating conversation:', error);
+      alert('Gagal membuka chat');
     }
   };
 
@@ -98,8 +152,8 @@ export default function HomePage() {
     handleCloseSidebar();
   };
 
-  const filteredProducts = selectedCategory === 'Semua' 
-    ? featuredProducts 
+  const filteredProducts = selectedCategory === 'Semua'
+    ? featuredProducts
     : featuredProducts.filter(p => p.category === selectedCategory);
 
   if (loading) {
@@ -120,7 +174,7 @@ export default function HomePage() {
           <div className="text-red-500 text-5xl mb-4">⚠️</div>
           <h3 className="text-xl font-bold text-gray-800 mb-2">Terjadi Kesalahan</h3>
           <p className="text-gray-600 mb-4">{error}</p>
-          <button 
+          <button
             onClick={fetchProducts}
             className="text-white px-6 py-2 rounded-lg font-semibold hover:opacity-90 transition"
             style={{ backgroundColor: '#A4C3B2' }}
@@ -147,16 +201,16 @@ export default function HomePage() {
                 <p className="text-xs text-gray-500">Marketplace Mahasiswa</p>
               </div>
             </Link>
-            
+
             <nav className="hidden md:flex items-center space-x-6">
               <Link to="/" className="text-gray-700 transition font-medium hover:text-opacity-80" style={{ color: '#A4C3B2' }}>Beranda</Link>
-              <button 
+              <button
                 onClick={() => handleOpenSidebar('kategori')}
                 className="text-gray-700 transition font-medium hover:opacity-80 bg-transparent border-none cursor-pointer"
               >
                 Kategori
               </button>
-              <button 
+              <button
                 onClick={handleJualBarang}
                 className="text-gray-700 transition font-medium hover:opacity-80 bg-transparent border-none cursor-pointer"
               >
@@ -175,7 +229,7 @@ export default function HomePage() {
                     <User size={18} />
                     <span className="hidden sm:inline">{currentUser.nama.split(' ')[0]}</span>
                   </Link>
-                  <button 
+                  <button
                     onClick={handleLogout}
                     className="hidden sm:flex items-center space-x-2 text-red-600 hover:text-red-700 transition p-2 rounded-lg hover:bg-red-50"
                     title="Logout"
@@ -194,8 +248,8 @@ export default function HomePage() {
                   </Link>
                 </>
               )}
-              
-              <button 
+
+              <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="md:hidden p-2 hover:bg-gray-100 rounded-lg"
               >
@@ -208,7 +262,7 @@ export default function HomePage() {
             <div className="md:hidden mt-4 pb-4 border-t pt-4">
               <nav className="flex flex-col space-y-3">
                 <Link to="/" className="transition font-medium py-2" style={{ color: '#A4C3B2' }}>Beranda</Link>
-                <button 
+                <button
                   onClick={() => {
                     handleOpenSidebar('kategori');
                     setIsMobileMenuOpen(false);
@@ -217,7 +271,7 @@ export default function HomePage() {
                 >
                   Kategori
                 </button>
-                <button 
+                <button
                   onClick={() => {
                     handleJualBarang();
                     setIsMobileMenuOpen(false);
@@ -226,7 +280,7 @@ export default function HomePage() {
                 >
                   Jual Barang
                 </button>
-                
+
                 {currentUser ? (
                   <>
                     <a href="#pesan" className="text-gray-700 transition font-medium py-2 flex items-center hover:opacity-80">
@@ -237,7 +291,7 @@ export default function HomePage() {
                       <User size={18} />
                       <span>Profil</span>
                     </Link>
-                    <button 
+                    <button
                       onClick={handleLogout}
                       className="flex items-center justify-center space-x-2 text-red-600 px-4 py-2 rounded-lg hover:bg-red-50 transition font-medium"
                     >
@@ -268,7 +322,7 @@ export default function HomePage() {
                 placeholder="Cari barang, buku, kost, elektronik..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none transition focus:border-opacity-100" 
+                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none transition focus:border-opacity-100"
                 style={{ borderColor: '#A4C3B2' }}
               />
             </div>
@@ -278,7 +332,7 @@ export default function HomePage() {
 
       {/* Sidebar Overlay */}
       {sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
           onClick={handleCloseSidebar}
           style={{ animation: 'fadeIn 0.3s ease-in' }}
@@ -286,17 +340,16 @@ export default function HomePage() {
       )}
 
       {/* Sidebar */}
-      <div 
-        className={`fixed right-0 top-0 h-full w-80 bg-white shadow-2xl z-50 transform transition-transform duration-300 overflow-y-auto ${
-          sidebarOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
+      <div
+        className={`fixed right-0 top-0 h-full w-80 bg-white shadow-2xl z-50 transform transition-transform duration-300 overflow-y-auto ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}
       >
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-gray-800">
               {sidebarMode === 'kategori' ? 'Pilih Kategori' : 'Mulai Berjualan'}
             </h2>
-            <button 
+            <button
               onClick={handleCloseSidebar}
               className="p-2 hover:bg-gray-100 rounded-lg transition"
             >
@@ -312,17 +365,16 @@ export default function HomePage() {
                   <button
                     key={category.name}
                     onClick={() => handleSelectCategory(category.name)}
-                    className={`w-full p-4 rounded-lg transition-all flex items-center space-x-3 ${
-                      selectedCategory === category.name
-                        ? 'text-white shadow-lg'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                    className={`w-full p-4 rounded-lg transition-all flex items-center space-x-3 ${selectedCategory === category.name
+                      ? 'text-white shadow-lg'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
                     style={selectedCategory === category.name ? { backgroundColor: '#A4C3B2' } : {}}
                   >
                     <Icon size={24} />
                     <div className="text-left flex-1">
-                      <p className="font-semibold">{category.name}</p>
-                      <p className="text-sm opacity-75">{category.count} items</p>
+                      <p className="font-semibold text-sm">{category.name}</p>
+                      <p className="text-xs opacity-75">{category.count} items</p>
                     </div>
                     {selectedCategory === category.name && <ChevronRight size={20} />}
                   </button>
@@ -383,9 +435,9 @@ export default function HomePage() {
             <p className="text-lg mb-6">
               Platform marketplace eksklusif untuk mahasiswa. Aman, mudah, dan terpercaya untuk jual beli buku, elektronik, kost, dan lainnya.
             </p>
-            <button 
+            <button
               onClick={handleJualBarang}
-              className="bg-white px-6 py-3 rounded-lg font-semibold hover:bg-opacity-90 transition flex items-center space-x-2" 
+              className="bg-white px-6 py-3 rounded-lg font-semibold hover:bg-opacity-90 transition flex items-center space-x-2"
               style={{ color: '#A4C3B2' }}
             >
               <span>Mulai Jual Barang</span>
@@ -399,7 +451,7 @@ export default function HomePage() {
       <section className="container mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-2xl font-bold text-gray-800">Kategori Populer</h3>
-          <button 
+          <button
             onClick={() => handleOpenSidebar('kategori')}
             className="md:hidden text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition"
             style={{ backgroundColor: '#A4C3B2' }}
@@ -414,11 +466,10 @@ export default function HomePage() {
               <button
                 key={category.name}
                 onClick={() => handleSelectCategory(category.name)}
-                className={`p-6 rounded-xl transition-all ${
-                  selectedCategory === category.name
-                    ? 'text-white shadow-lg scale-105'
-                    : 'bg-white text-gray-700 hover:shadow-md hover:scale-102'
-                }`}
+                className={`p-6 rounded-xl transition-all ${selectedCategory === category.name
+                  ? 'text-white shadow-lg scale-105'
+                  : 'bg-white text-gray-700 hover:shadow-md hover:scale-102'
+                  }`}
                 style={selectedCategory === category.name ? { backgroundColor: '#A4C3B2' } : {}}
               >
                 <Icon size={32} className="mx-auto mb-3" />
@@ -444,60 +495,59 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {filteredProducts.map((product) => (
             <div key={product.id} className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all overflow-hidden group cursor-pointer">
               <div className="relative overflow-hidden">
-                <img 
-                  src={product.image} 
+                <img
+                  src={product.image}
                   alt={product.name}
-                  className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-300"
+                  className="w-full h-72 object-cover group-hover:scale-110 transition-transform duration-300"
                 />
-                <div className="absolute top-3 left-3">
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                    product.condition === 'Baru' 
-                      ? 'bg-green-500 text-white' 
-                      : 'bg-yellow-500 text-white'
-                  }`}>
+                <div className="absolute top-2 left-2">
+                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${product.condition === 'Baru'
+                    ? 'bg-green-500 text-white'
+                    : 'bg-yellow-500 text-white'
+                    }`}>
                     {product.condition}
                   </span>
                 </div>
                 {product.negotiable && (
-                  <div className="absolute top-3 right-3">
-                    <span className="px-3 py-1 rounded-full text-xs font-semibold text-white" style={{ backgroundColor: '#A4C3B2' }}>
-                      Bisa Nego
+                  <div className="absolute top-2 right-2">
+                    <span className="px-2 py-1 rounded-full text-xs font-semibold text-white" style={{ backgroundColor: '#A4C3B2' }}>
+                      Nego
                     </span>
                   </div>
                 )}
-                <div className="absolute bottom-3 right-3 bg-black bg-opacity-60 text-white px-2 py-1 rounded-lg flex items-center space-x-1 text-xs">
+                <div className="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white px-2 py-1 rounded-lg flex items-center space-x-1 text-xs">
                   <Eye size={12} />
                   <span>{product.views}</span>
                 </div>
               </div>
-              
-              <div className="p-4">
-                <h4 className="font-bold text-lg text-gray-800 mb-2 line-clamp-2 hover:opacity-80 transition">
+
+              <div className="p-3">
+                <h4 className="font-bold text-sm text-gray-800 mb-2 line-clamp-2 hover:opacity-80 transition">
                   {product.name}
                 </h4>
-                <p className="text-2xl font-bold mb-3" style={{ color: '#A4C3B2' }}>
+                <p className="text-lg font-bold mb-2" style={{ color: '#A4C3B2' }}>
                   {product.price}
                 </p>
-                
-                <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
+
+                <div className="flex flex-col text-xs text-gray-600 mb-2 space-y-1">
                   <div className="flex items-center space-x-1">
-                    <Home size={14} />
-                    <span>{product.location}</span>
+                    <Home size={12} />
+                    <span className="truncate">{product.location}</span>
                   </div>
-                  <span className="text-gray-500 truncate ml-2">• {product.seller}</span>
+                  <span className="text-gray-500 truncate">{product.seller}</span>
                 </div>
 
-                <button 
-                  onClick={handleChatSeller}
-                  className="w-full text-white py-2 rounded-lg font-semibold transition hover:opacity-90 flex items-center justify-center space-x-2" 
+                <button
+                  onClick={() => handleChatSeller(product)}
+                  className="w-full text-white py-2 rounded-lg text-sm font-semibold transition hover:opacity-90 flex items-center justify-center space-x-2"
                   style={{ backgroundColor: '#A4C3B2' }}
                 >
-                  <MessageSquare size={18} />
-                  <span>Chat Penjual</span>
+                  <MessageSquare size={16} />
+                  <span>Chat</span>
                 </button>
               </div>
             </div>

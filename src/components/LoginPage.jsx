@@ -33,7 +33,7 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    
+
     // Validasi client-side
     if (!formData.email || !formData.password) {
       setError('Email dan password harus diisi');
@@ -49,21 +49,21 @@ export default function LoginPage() {
 
     try {
       const response = await login(formData.email, formData.password);
-      
+
       // Simpan token dan user data
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
-      
+
       // Jika remember me, simpan ke localStorage yang persistent
       if (rememberMe) {
         localStorage.setItem('rememberMe', 'true');
       }
-      
+
       // Redirect ke home
       navigate('/');
     } catch (err) {
       console.error('Login error:', err);
-      
+
       // Handle berbagai jenis error
       if (err.response) {
         // Error dari backend
@@ -125,10 +125,9 @@ export default function LoginPage() {
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="nama.mahasiswa@student.pnl.ac.id"
-                  className={`w-full pl-11 pr-4 py-3 border-2 rounded-lg focus:outline-none transition ${
-                    error && !formData.email ? 'border-red-300' : 'border-gray-200'
-                  }`}
-                  style={{ 
+                  className={`w-full pl-11 pr-4 py-3 border-2 rounded-lg focus:outline-none transition ${error && !formData.email ? 'border-red-300' : 'border-gray-200'
+                    }`}
+                  style={{
                     focusBorderColor: '#A4C3B2',
                     borderColor: error && !formData.email ? '#FCA5A5' : undefined
                   }}
@@ -153,10 +152,9 @@ export default function LoginPage() {
                   value={formData.password}
                   onChange={handleChange}
                   placeholder="Masukkan password"
-                  className={`w-full pl-11 pr-12 py-3 border-2 rounded-lg focus:outline-none transition ${
-                    error && !formData.password ? 'border-red-300' : 'border-gray-200'
-                  }`}
-                  style={{ 
+                  className={`w-full pl-11 pr-12 py-3 border-2 rounded-lg focus:outline-none transition ${error && !formData.password ? 'border-red-300' : 'border-gray-200'
+                    }`}
+                  style={{
                     focusBorderColor: '#A4C3B2',
                     borderColor: error && !formData.password ? '#FCA5A5' : undefined
                   }}
@@ -179,23 +177,23 @@ export default function LoginPage() {
             {/* Remember Me & Forgot Password */}
             <div className="flex items-center justify-between text-sm">
               <label className="flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="mr-2 rounded cursor-pointer" 
+                  className="mr-2 rounded cursor-pointer"
                   style={{ accentColor: '#A4C3B2' }}
                   disabled={loading}
                 />
                 <span className="text-gray-600 select-none">Ingat saya</span>
               </label>
-              <a 
-                href="#forgot" 
+              <Link
+                to="/forgot-password"
                 className="font-semibold hover:underline transition"
                 style={{ color: '#A4C3B2' }}
               >
                 Lupa password?
-              </a>
+              </Link>
             </div>
 
             {/* Submit Button */}
@@ -233,8 +231,8 @@ export default function LoginPage() {
           <div className="text-center">
             <p className="text-gray-600">
               Belum punya akun?{' '}
-              <Link 
-                to="/register" 
+              <Link
+                to="/register"
                 className="font-semibold hover:underline transition"
                 style={{ color: '#A4C3B2' }}
               >
@@ -246,8 +244,8 @@ export default function LoginPage() {
 
         {/* Back to Home */}
         <div className="text-center mt-6">
-          <Link 
-            to="/" 
+          <Link
+            to="/"
             className="text-gray-600 hover:text-gray-800 font-medium transition inline-flex items-center space-x-1"
           >
             <span>←</span>
