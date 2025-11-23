@@ -69,6 +69,8 @@ router.post('/conversations', async (req, res) => {
   try {
     const { id_pembeli, id_penjual, id_produk } = req.body;
     
+    console.log('Creating conversation:', { id_pembeli, id_penjual, id_produk });
+    
     // Check if conversation exists
     const [existing] = await db.query(
       'SELECT * FROM percakapan WHERE id_pembeli = ? AND id_penjual = ? AND id_produk = ?',
@@ -76,6 +78,7 @@ router.post('/conversations', async (req, res) => {
     );
     
     if (existing.length > 0) {
+      console.log('Conversation exists:', existing[0]);
       return res.json(existing[0]);
     }
     
@@ -84,6 +87,8 @@ router.post('/conversations', async (req, res) => {
       'INSERT INTO percakapan (id_pembeli, id_penjual, id_produk) VALUES (?, ?, ?)',
       [id_pembeli, id_penjual, id_produk]
     );
+    
+    console.log('New conversation created:', result.insertId);
     
     res.status(201).json({ 
       id_percakapan: result.insertId,

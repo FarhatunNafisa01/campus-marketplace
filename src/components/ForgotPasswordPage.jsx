@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ShoppingBag, Mail, ArrowLeft, Send, CheckCircle, AlertCircle } from 'lucide-react';
+import { forgotPassword } from '../services/api';  // ← IMPORT INI
 
 export default function ForgotPasswordPage() {
     const [email, setEmail] = useState('');
@@ -23,11 +24,16 @@ export default function ForgotPasswordPage() {
             return;
         }
 
+        if (!email.endsWith('@student.pnl.ac.id')) {
+            setError('Hanya email mahasiswa (@student.pnl.ac.id) yang dapat menggunakan fitur ini');
+            return;
+        }
+
         setLoading(true);
 
         try {
-            // ✅ Panggil API
-            await forgotPassword(email);
+            const response = await forgotPassword(email);
+            console.log('Response:', response.data);
 
             setSuccess(true);
             setEmail('');
@@ -38,10 +44,10 @@ export default function ForgotPasswordPage() {
             setLoading(false);
         }
     };
+
     return (
         <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8" style={{ backgroundColor: '#EEC6CA' }}>
             <div className="max-w-md w-full">
-                {/* Logo & Header */}
                 <div className="text-center mb-8">
                     <div className="flex justify-center mb-4">
                         <div className="p-4 rounded-2xl shadow-lg" style={{ backgroundColor: '#A4C3B2' }}>
@@ -54,9 +60,7 @@ export default function ForgotPasswordPage() {
                     </p>
                 </div>
 
-                {/* Form Card */}
                 <div className="bg-white rounded-2xl shadow-xl p-8">
-                    {/* Success Message */}
                     {success && (
                         <div className="mb-6 p-4 bg-green-50 border-l-4 border-green-500 rounded-lg flex items-start space-x-3 animate-fade-in">
                             <CheckCircle className="text-green-500 flex-shrink-0 mt-0.5" size={20} />
@@ -71,7 +75,6 @@ export default function ForgotPasswordPage() {
                         </div>
                     )}
 
-                    {/* Error Alert */}
                     {error && (
                         <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg flex items-start space-x-3 animate-shake">
                             <AlertCircle className="text-red-500 flex-shrink-0 mt-0.5" size={20} />
@@ -82,7 +85,6 @@ export default function ForgotPasswordPage() {
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-6">
-                        {/* Email Input */}
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-2">
                                 Email Mahasiswa
@@ -97,7 +99,7 @@ export default function ForgotPasswordPage() {
                                         if (error) setError('');
                                         if (success) setSuccess(false);
                                     }}
-                                    placeholder="nama.mahasiswa@student.pnl.ac.id"
+                                    placeholder="nama_mahasiswa@student.pnl.ac.id"  // ← UPDATE INI
                                     className="w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none transition"
                                     style={{ focusBorderColor: '#A4C3B2' }}
                                     onFocus={(e) => e.target.style.borderColor = '#A4C3B2'}
@@ -108,7 +110,6 @@ export default function ForgotPasswordPage() {
                             </div>
                         </div>
 
-                        {/* Submit Button */}
                         <button
                             type="submit"
                             disabled={loading}
@@ -129,7 +130,6 @@ export default function ForgotPasswordPage() {
                         </button>
                     </form>
 
-                    {/* Divider */}
                     <div className="relative my-6">
                         <div className="absolute inset-0 flex items-center">
                             <div className="w-full border-t border-gray-300"></div>
@@ -139,7 +139,6 @@ export default function ForgotPasswordPage() {
                         </div>
                     </div>
 
-                    {/* Back to Login */}
                     <div className="text-center">
                         <Link
                             to="/login"
@@ -152,7 +151,6 @@ export default function ForgotPasswordPage() {
                     </div>
                 </div>
 
-                {/* Help Text */}
                 <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <p className="text-sm font-semibold text-blue-800 mb-2">💡 Bantuan:</p>
                     <ul className="text-xs text-blue-700 space-y-1">
@@ -164,7 +162,6 @@ export default function ForgotPasswordPage() {
                 </div>
             </div>
 
-            {/* Custom CSS untuk animasi */}
             <style jsx>{`
         @keyframes shake {
           0%, 100% { transform: translateX(0); }

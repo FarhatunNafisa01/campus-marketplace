@@ -110,7 +110,7 @@ export const validateResetToken = (token) => {
 export const createProduct = (productData) => 
   api.post('/products', productData);
 
-// Chat endpoints
+// Chat endpoints (tambahkan di bagian bawah file)
 export const getConversations = (userId) => api.get(`/chat/conversations/${userId}`);
 export const getMessages = (conversationId) => api.get(`/chat/messages/${conversationId}`);
 export const createConversation = (data) => api.post('/chat/conversations', data);
