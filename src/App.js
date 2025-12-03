@@ -5,6 +5,7 @@ import LoginPage from './components/LoginPage';
 import RegisterPage from './components/RegisterPage';
 import ProfilePage from './components/ProfilePage';
 import SellPage from './components/SellPage';
+import ProductDetailPage from './components/ProductDetailPage'; // 👈 TAMBAHKAN INI
 import ProtectedRoute from './components/ProtectedRoute';
 import ForgotPasswordPage from './components/ForgotPasswordPage';
 import ResetPasswordPage from './components/ResetPasswordPage';
@@ -19,6 +20,8 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/chat" element={<ChatPage />} />
+        <Route path="/product/:id" element={<ProductDetailPage />} /> {/* 👈 TAMBAHKAN INI */}
+        
         {/* Protected Routes */}
         <Route
           path="/profile"

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageSquare, Send, ArrowLeft, Image, Search, MoreVertical } from 'lucide-react';
+import { MessageSquare, Send, ArrowLeft, Search, MoreVertical, X } from 'lucide-react';
 import { getConversations, getMessages, sendMessage, markAsRead, getAuthUser } from '../services/api';
 
 export default function ChatPage() {
@@ -14,7 +14,14 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [error, setError] = useState('');
 
+  // Auto scroll to bottom
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Check user authentication
   useEffect(() => {
     const user = getAuthUser();
     if (!user) {
@@ -25,16 +32,13 @@ export default function ChatPage() {
     loadConversations(user.id);
   }, [navigate]);
 
+  // Load messages when conversation is selected
   useEffect(() => {
-    if (selectedConversation) {
+    if (selectedConversation && currentUser) {
       loadMessages(selectedConversation.id_percakapan);
       markAsRead(selectedConversation.id_percakapan, currentUser.id);
     }
   }, [selectedConversation, currentUser]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -43,30 +47,36 @@ export default function ChatPage() {
   const loadConversations = async (userId) => {
     try {
       setLoading(true);
+      setError('');
       const response = await getConversations(userId);
-      setConversations(response.data);
-      setLoading(false);
+      setConversations(response.data || []);
     } catch (error) {
       console.error('Error loading conversations:', error);
+      setError('Gagal memuat percakapan. ' + (error.response?.data?.message || error.message));
+    } finally {
       setLoading(false);
     }
   };
 
   const loadMessages = async (conversationId) => {
     try {
+      setError('');
       const response = await getMessages(conversationId);
-      setMessages(response.data);
+      setMessages(response.data || []);
     } catch (error) {
       console.error('Error loading messages:', error);
+      setError('Gagal memuat pesan. ' + (error.response?.data?.message || error.message));
     }
   };
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim() || sending) return;
+    if (!newMessage.trim() || sending || !selectedConversation) return;
 
     try {
       setSending(true);
+      setError('');
+      
       const messageData = {
         id_percakapan: selectedConversation.id_percakapan,
         id_pengirim: currentUser.id,
@@ -77,30 +87,33 @@ export default function ChatPage() {
       const response = await sendMessage(messageData);
       
       // Add message to UI immediately
-      setMessages([...messages, {
+      const newMsg = {
         ...response.data,
         nama_pengirim: currentUser.nama,
         foto_profil: currentUser.foto_profil
-      }]);
+      };
       
+      setMessages(prev => [...prev, newMsg]);
       setNewMessage('');
       
       // Reload conversations to update last message
       loadConversations(currentUser.id);
     } catch (error) {
       console.error('Error sending message:', error);
-      alert('Gagal mengirim pesan');
+      setError('Gagal mengirim pesan. ' + (error.response?.data?.message || error.message));
     } finally {
       setSending(false);
     }
   };
 
   const filteredConversations = conversations.filter(conv =>
-    conv.nama_lawan.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    conv.nama_barang.toLowerCase().includes(searchQuery.toLowerCase())
+    (conv.nama_lawan || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (conv.nama_barang || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const formatTime = (timestamp) => {
+    if (!timestamp) return '';
+    
     const date = new Date(timestamp);
     const now = new Date();
     const diffInHours = (now - date) / (1000 * 60 * 60);
@@ -112,6 +125,13 @@ export default function ChatPage() {
     } else {
       return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
     }
+  };
+
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return 'https://via.placeholder.com/50';
+    if (imagePath.startsWith('http')) return imagePath;
+    if (imagePath.startsWith('/')) return `http://localhost:5000${imagePath}`;
+    return `http://localhost:5000/${imagePath}`;
   };
 
   if (loading) {
@@ -155,43 +175,52 @@ export default function ChatPage() {
           </div>
         </div>
 
+        {/* Error Message */}
+        {error && (
+          <div className="p-4 bg-red-50 border-b border-red-200">
+            <p className="text-sm text-red-600">{error}</p>
+          </div>
+        )}
+
         {/* Conversations List */}
         <div className="flex-1 overflow-y-auto">
           {filteredConversations.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-500 p-8">
               <MessageSquare size={64} className="mb-4 opacity-50" />
-              <p className="text-center">Belum ada percakapan</p>
+              <p className="text-center font-medium">Belum ada percakapan</p>
               <p className="text-sm text-center mt-2">Mulai chat dengan penjual dari halaman produk</p>
             </div>
           ) : (
             filteredConversations.map((conv) => (
               <button
                 key={conv.id_percakapan}
-                onClick={() => setSelectedConversation(conv)}
+                onClick={() => {
+                  setSelectedConversation(conv);
+                  setError('');
+                }}
                 className={`w-full p-4 flex items-start space-x-3 hover:bg-gray-50 transition ${
                   selectedConversation?.id_percakapan === conv.id_percakapan ? 'bg-gray-100' : ''
                 }`}
               >
                 {/* Avatar */}
                 <img
-                  src={conv.foto_lawan?.startsWith('http') 
-                    ? conv.foto_lawan 
-                    : conv.foto_lawan?.startsWith('/') 
-                    ? `http://localhost:5000${conv.foto_lawan}`
-                    : 'https://via.placeholder.com/50'}
-                  alt={conv.nama_lawan}
+                  src={getImageUrl(conv.foto_lawan)}
+                  alt={conv.nama_lawan || 'User'}
                   className="w-12 h-12 rounded-full object-cover flex-shrink-0"
+                  onError={(e) => {
+                    e.target.src = 'https://via.placeholder.com/50';
+                  }}
                 />
 
                 {/* Content */}
                 <div className="flex-1 min-w-0 text-left">
                   <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-semibold text-gray-800 truncate">{conv.nama_lawan}</h3>
+                    <h3 className="font-semibold text-gray-800 truncate">{conv.nama_lawan || 'User'}</h3>
                     <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
                       {formatTime(conv.waktu_pesan_terakhir)}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-600 truncate mb-1">{conv.nama_barang}</p>
+                  <p className="text-sm text-gray-600 truncate mb-1">{conv.nama_barang || 'Produk'}</p>
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-gray-500 truncate">
                       {conv.pesan_terakhir || 'Belum ada pesan'}
@@ -217,19 +246,22 @@ export default function ChatPage() {
             <div className="p-4 border-b flex items-center justify-between" style={{ backgroundColor: '#F5F5F5' }}>
               <div className="flex items-center space-x-3">
                 <button
-                  onClick={() => setSelectedConversation(null)}
+                  onClick={() => {
+                    setSelectedConversation(null);
+                    setMessages([]);
+                    setError('');
+                  }}
                   className="md:hidden p-2 hover:bg-gray-200 rounded-lg"
                 >
                   <ArrowLeft size={20} />
                 </button>
                 <img
-                  src={selectedConversation.foto_lawan?.startsWith('http') 
-                    ? selectedConversation.foto_lawan 
-                    : selectedConversation.foto_lawan?.startsWith('/') 
-                    ? `http://localhost:5000${selectedConversation.foto_lawan}`
-                    : 'https://via.placeholder.com/40'}
+                  src={getImageUrl(selectedConversation.foto_lawan)}
                   alt={selectedConversation.nama_lawan}
                   className="w-10 h-10 rounded-full object-cover"
+                  onError={(e) => {
+                    e.target.src = 'https://via.placeholder.com/40';
+                  }}
                 />
                 <div>
                   <h2 className="font-semibold text-gray-800">{selectedConversation.nama_lawan}</h2>
@@ -258,13 +290,12 @@ export default function ChatPage() {
                       <div className={`flex items-end space-x-2 max-w-md ${isMe ? 'flex-row-reverse space-x-reverse' : ''}`}>
                         {!isMe && (
                           <img
-                            src={msg.foto_profil?.startsWith('http') 
-                              ? msg.foto_profil 
-                              : msg.foto_profil?.startsWith('/') 
-                              ? `http://localhost:5000${msg.foto_profil}`
-                              : 'https://via.placeholder.com/32'}
+                            src={getImageUrl(msg.foto_profil)}
                             alt={msg.nama_pengirim}
                             className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                            onError={(e) => {
+                              e.target.src = 'https://via.placeholder.com/32';
+                            }}
                           />
                         )}
                         <div>
@@ -276,10 +307,13 @@ export default function ChatPage() {
                             }`}
                             style={isMe ? { backgroundColor: '#A4C3B2' } : {}}
                           >
-                            <p className="text-sm">{msg.pesan}</p>
+                            <p className="text-sm break-words">{msg.pesan}</p>
                           </div>
                           <p className="text-xs text-gray-500 mt-1 px-2">
                             {formatTime(msg.dikirim_pada)}
+                            {isMe && msg.sudah_dibaca && (
+                              <span className="ml-1">✓✓</span>
+                            )}
                           </p>
                         </div>
                       </div>
@@ -293,13 +327,6 @@ export default function ChatPage() {
             {/* Input Area */}
             <form onSubmit={handleSendMessage} className="p-4 border-t bg-white">
               <div className="flex items-center space-x-2">
-                <button
-                  type="button"
-                  className="p-2 hover:bg-gray-100 rounded-lg transition"
-                  title="Kirim gambar"
-                >
-                  <Image size={24} className="text-gray-600" />
-                </button>
                 <input
                   type="text"
                   value={newMessage}

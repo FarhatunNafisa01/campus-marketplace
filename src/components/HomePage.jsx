@@ -4,6 +4,7 @@ import { Search, ShoppingBag, MessageSquare, User, ChevronRight, Book, Laptop, H
 import { getProducts, getAuthUser, isAuthenticated, logout, createConversation } from '../services/api';
 import { Filter, ChevronDown, DollarSign, Package, Tag } from 'lucide-react';
 
+
 export default function HomePage() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
@@ -117,26 +118,57 @@ export default function HomePage() {
   };
 
   const handleChatSeller = async (product) => {
-    if (!currentUser) {
-      navigate('/login');
-      return;
-    }
+  if (!currentUser) {
+    alert('Silakan login terlebih dahulu untuk chat dengan penjual');
+    navigate('/login');
+    return;
+  }
 
-    try {
-      // Create or get conversation
-      const conversationData = {
-        id_pembeli: currentUser.id,
-        id_penjual: product.sellerId,
-        id_produk: product.id
-      };
+  // Cek apakah user mencoba chat produk sendiri
+  if (product.sellerId === currentUser.id) {
+    alert('Anda tidak dapat chat dengan diri sendiri');
+    return;
+  }
 
-      await createConversation(conversationData);
-      navigate('/chat');
-    } catch (error) {
-      console.error('Error creating conversation:', error);
-      alert('Gagal membuka chat: ' + error.message);
+  try {
+    // Tampilkan loading
+    const loadingElement = document.createElement('div');
+    loadingElement.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    loadingElement.innerHTML = `
+      <div class="bg-white rounded-lg p-6 flex flex-col items-center">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mb-3"></div>
+        <p class="text-gray-700">Membuka chat...</p>
+      </div>
+    `;
+    document.body.appendChild(loadingElement);
+
+    // Create or get conversation
+    const conversationData = {
+      id_pembeli: currentUser.id,
+      id_penjual: product.sellerId,
+      id_produk: product.id
+    };
+
+    console.log('Creating conversation:', conversationData);
+    await createConversation(conversationData);
+    
+    // Remove loading dan navigate
+    document.body.removeChild(loadingElement);
+    navigate('/chat');
+    
+  } catch (error) {
+    console.error('Error creating conversation:', error);
+    
+    // Remove loading jika ada
+    const loadingElement = document.querySelector('.fixed.inset-0');
+    if (loadingElement) {
+      document.body.removeChild(loadingElement);
     }
-  };
+    
+    // Tampilkan error message
+    alert('Gagal membuka chat: ' + (error.response?.data?.message || error.message));
+  }
+};
 
   const handleJualBarang = () => {
     if (!currentUser) {
