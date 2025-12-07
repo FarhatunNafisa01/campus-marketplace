@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Search, ShoppingBag, MessageSquare, User, ChevronRight, Book, Laptop, Home, Utensils, TrendingUp, Eye, Menu, X, LogOut } from 'lucide-react';
 import { getProducts, getAuthUser, isAuthenticated, logout, createConversation } from '../services/api';
 import { Filter, ChevronDown, DollarSign, Package, Tag } from 'lucide-react';
-
+import NotificationCenter from './NotificationCenter';
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -118,57 +118,57 @@ export default function HomePage() {
   };
 
   const handleChatSeller = async (product) => {
-  if (!currentUser) {
-    alert('Silakan login terlebih dahulu untuk chat dengan penjual');
-    navigate('/login');
-    return;
-  }
+    if (!currentUser) {
+      alert('Silakan login terlebih dahulu untuk chat dengan penjual');
+      navigate('/login');
+      return;
+    }
 
-  // Cek apakah user mencoba chat produk sendiri
-  if (product.sellerId === currentUser.id) {
-    alert('Anda tidak dapat chat dengan diri sendiri');
-    return;
-  }
+    // Cek apakah user mencoba chat produk sendiri
+    if (product.sellerId === currentUser.id) {
+      alert('Anda tidak dapat chat dengan diri sendiri');
+      return;
+    }
 
-  try {
-    // Tampilkan loading
-    const loadingElement = document.createElement('div');
-    loadingElement.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
-    loadingElement.innerHTML = `
+    try {
+      // Tampilkan loading
+      const loadingElement = document.createElement('div');
+      loadingElement.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+      loadingElement.innerHTML = `
       <div class="bg-white rounded-lg p-6 flex flex-col items-center">
         <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mb-3"></div>
         <p class="text-gray-700">Membuka chat...</p>
       </div>
     `;
-    document.body.appendChild(loadingElement);
+      document.body.appendChild(loadingElement);
 
-    // Create or get conversation
-    const conversationData = {
-      id_pembeli: currentUser.id,
-      id_penjual: product.sellerId,
-      id_produk: product.id
-    };
+      // Create or get conversation
+      const conversationData = {
+        id_pembeli: currentUser.id,
+        id_penjual: product.sellerId,
+        id_produk: product.id
+      };
 
-    console.log('Creating conversation:', conversationData);
-    await createConversation(conversationData);
-    
-    // Remove loading dan navigate
-    document.body.removeChild(loadingElement);
-    navigate('/chat');
-    
-  } catch (error) {
-    console.error('Error creating conversation:', error);
-    
-    // Remove loading jika ada
-    const loadingElement = document.querySelector('.fixed.inset-0');
-    if (loadingElement) {
+      console.log('Creating conversation:', conversationData);
+      await createConversation(conversationData);
+
+      // Remove loading dan navigate
       document.body.removeChild(loadingElement);
+      navigate('/chat');
+
+    } catch (error) {
+      console.error('Error creating conversation:', error);
+
+      // Remove loading jika ada
+      const loadingElement = document.querySelector('.fixed.inset-0');
+      if (loadingElement) {
+        document.body.removeChild(loadingElement);
+      }
+
+      // Tampilkan error message
+      alert('Gagal membuka chat: ' + (error.response?.data?.message || error.message));
     }
-    
-    // Tampilkan error message
-    alert('Gagal membuka chat: ' + (error.response?.data?.message || error.message));
-  }
-};
+  };
 
   const handleJualBarang = () => {
     if (!currentUser) {
@@ -371,19 +371,21 @@ export default function HomePage() {
             <div className="flex items-center space-x-5">
               {currentUser ? (
                 <>
-                  <button className="relative p-3 rounded-full hover:bg-gray-100/60 transition-all duration-300 hover:scale-110 backdrop-blur-xl">
-                    <MessageSquare size={22} className="text-gray-700" />
-                    <span className="absolute -top-1 -right-1 bg-gradient-to-br from-red-500 to-pink-600 text-white text-[10px] font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg animate-bounce">
-                      3
-                    </span>
-                  </button>
+                  {/* Notification Center - NEW! */}
+                  <NotificationCenter />
+
+                  {/* Profile Button */}
                   <Link
                     to="/profile"
                     className="flex items-center space-x-2 text-white px-5 py-2.5 rounded-2xl bg-[#A4C3B2]/90 shadow-lg backdrop-blur-xl transition-all duration-300 hover:opacity-95 hover:scale-110 hover:shadow-xl"
                   >
                     <User size={18} />
-                    <span className="hidden sm:inline drop-shadow-sm">{currentUser.nama.split(' ')[0]}</span>
+                    <span className="hidden sm:inline drop-shadow-sm">
+                      {currentUser.nama.split(' ')[0]}
+                    </span>
                   </Link>
+
+                  {/* Logout Button */}
                   <button
                     onClick={handleLogout}
                     className="hidden sm:flex items-center space-x-2 text-red-600 p-3 rounded-xl transition-all duration-300 hover:text-red-700 hover:bg-red-50/70 hover:scale-110"
@@ -410,6 +412,7 @@ export default function HomePage() {
                 </>
               )}
 
+              {/* Mobile Menu Button */}
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="md:hidden p-3 rounded-xl hover:bg-gray-100/60 transition-all duration-300 hover:scale-110"
@@ -883,6 +886,7 @@ export default function HomePage() {
                     src={product.image}
                     alt={product.name}
                     className="w-full h-72 object-cover group-hover:scale-110 transition-transform duration-300"
+                    onClick={() => navigate(`/product/${product.id}`)}
                   />
                   <div className="absolute top-2 left-2">
                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${product.condition === 'Baru'

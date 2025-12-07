@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
-  ShoppingBag, ArrowLeft, X, AlertCircle, CheckCircle, 
-  Paperclip, Package, MapPin, Tag
+  ShoppingBag, ArrowLeft, AlertCircle, CheckCircle, 
+  Package, MapPin, Tag, Image as ImageIcon, Trash2
 } from 'lucide-react';
 
 export default function SellPage() {
@@ -11,8 +11,11 @@ export default function SellPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [previewImage, setPreviewImage] = useState(null);
-  const [imageFile, setImageFile] = useState(null);
+
+  // State untuk multiple images
+  const [previewImages, setPreviewImages] = useState([]);
+  const [imageFiles, setImageFiles] = useState([]);
+  const MAX_IMAGES = 5;
 
   const [formData, setFormData] = useState({
     nama_barang: '',
@@ -43,60 +46,55 @@ export default function SellPage() {
   };
 
   const handleImageChange = (e) => {
-    console.log('🖼️ Image change triggered');
-    const file = e.target.files[0];
-    
-    if (!file) {
-      console.log('❌ No file selected');
+    const files = Array.from(e.target.files);
+
+    if (files.length === 0) return;
+
+    // Cek jumlah total foto
+    if (imageFiles.length + files.length > MAX_IMAGES) {
+      setError(`Maksimal ${MAX_IMAGES} foto!`);
       return;
     }
 
-    console.log('📁 File info:', {
-      name: file.name,
-      type: file.type,
-      size: file.size,
-      sizeInMB: (file.size / (1024 * 1024)).toFixed(2) + ' MB'
-    });
+    // Validasi setiap file
+    const validFiles = [];
+    const validPreviews = [];
 
-    // Validasi tipe file
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
-    if (!allowedTypes.includes(file.type)) {
-      setError('Hanya file JPG, JPEG, dan PNG yang diperbolehkan!');
-      console.log('❌ Invalid file type:', file.type);
-      return;
+    for (let file of files) {
+      // Validasi tipe
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+      if (!allowedTypes.includes(file.type)) {
+        setError('Hanya file JPG, JPEG, dan PNG yang diperbolehkan!');
+        continue;
+      }
+
+      // Validasi ukuran (max 5MB per file)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Ukuran file maksimal 5MB per foto!');
+        continue;
+      }
+
+      validFiles.push(file);
+
+      // Buat preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        validPreviews.push(reader.result);
+
+        // Update state setelah semua file dibaca
+        if (validPreviews.length === validFiles.length) {
+          setPreviewImages(prev => [...prev, ...validPreviews]);
+          setImageFiles(prev => [...prev, ...validFiles]);
+          setError('');
+        }
+      };
+      reader.readAsDataURL(file);
     }
+  };
 
-    // Validasi ukuran file
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Ukuran file maksimal 5MB!');
-      console.log('❌ File too large:', file.size);
-      return;
-    }
-
-    // Baca file dan buat preview
-    const reader = new FileReader();
-    
-    reader.onloadstart = () => {
-      console.log('📖 Reading file...');
-    };
-    
-    reader.onloadend = () => {
-      console.log('✅ File read successfully');
-      console.log('📸 Preview URL length:', reader.result?.length);
-      
-      setPreviewImage(reader.result);
-      setImageFile(file);
-      setError('');
-      
-      console.log('✅ State updated - preview and file set');
-    };
-    
-    reader.onerror = (error) => {
-      console.error('❌ FileReader error:', error);
-      setError('Gagal membaca file. Coba lagi.');
-    };
-    
-    reader.readAsDataURL(file);
+  const removeImage = (index) => {
+    setPreviewImages(prev => prev.filter((_, i) => i !== index));
+    setImageFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const validateStep1 = () => {
@@ -124,8 +122,8 @@ export default function SellPage() {
       setError('Deskripsi minimal 20 karakter');
       return false;
     }
-    if (!previewImage) {
-      setError('Foto produk wajib diunggah');
+    if (previewImages.length === 0) {
+      setError('Minimal 1 foto produk wajib diunggah');
       return false;
     }
     return true;
@@ -162,10 +160,10 @@ export default function SellPage() {
 
     setLoading(true);
     setError('');
-    
+
     try {
       const token = localStorage.getItem('token');
-      
+
       if (!token) {
         setError('Anda belum login. Silakan login terlebih dahulu.');
         setTimeout(() => navigate('/login'), 2000);
@@ -173,7 +171,7 @@ export default function SellPage() {
       }
 
       const formDataToSend = new FormData();
-      
+
       formDataToSend.append('nama_barang', formData.nama_barang);
       formDataToSend.append('deskripsi', formData.deskripsi);
       formDataToSend.append('harga', formData.harga);
@@ -183,18 +181,20 @@ export default function SellPage() {
       formDataToSend.append('stok', formData.stok);
       formDataToSend.append('bisa_nego', formData.bisa_nego ? '1' : '0');
 
-      if (imageFile) {
-        formDataToSend.append('url_foto', imageFile);
+      // ✅ Upload SEMUA foto
+      if (imageFiles.length > 0) {
+        imageFiles.forEach((file) => {
+          formDataToSend.append('url_foto', file);
+        });
+        console.log(`📤 Uploading ${imageFiles.length} files`);
+      } else {
+        setError('Minimal 1 foto harus diupload');
+        setLoading(false);
+        return;
       }
 
-      console.log('=== SENDING DATA ===');
-      for (let pair of formDataToSend.entries()) {
-        console.log(pair[0] + ':', pair[1]);
-      }
-      
       const url = 'http://localhost:5000/api/products';
-      console.log('POST to:', url);
-      
+
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -203,10 +203,7 @@ export default function SellPage() {
         body: formDataToSend
       });
 
-      console.log('Response status:', response.status);
-      
       const responseData = await response.json();
-      console.log('Response data:', responseData);
 
       if (!response.ok) {
         throw new Error(responseData.message || 'Gagal posting produk');
@@ -216,7 +213,7 @@ export default function SellPage() {
       setTimeout(() => {
         navigate('/');
       }, 2000);
-      
+
     } catch (err) {
       console.error('❌ Error:', err);
       setError(err.message || 'Gagal posting produk');
@@ -226,14 +223,6 @@ export default function SellPage() {
   };
 
   const progressPercentage = (step / 3) * 100;
-
-  // Debug info
-  console.log('Current state:', {
-    step,
-    previewImage: previewImage ? 'SET' : 'NULL',
-    imageFile: imageFile ? imageFile.name : 'NULL',
-    formData: formData
-  });
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#EEC6CA' }}>
@@ -271,13 +260,12 @@ export default function SellPage() {
               <span className="text-sm font-semibold text-gray-600">Langkah {step} dari 3</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
-              <div 
+              <div
                 className="h-2 rounded-full transition-all duration-300"
                 style={{ width: `${progressPercentage}%`, backgroundColor: '#A4C3B2' }}
               />
             </div>
           </div>
-
 
           {/* Form */}
           <div className="bg-white rounded-xl shadow-lg p-8">
@@ -368,7 +356,7 @@ export default function SellPage() {
               </div>
             )}
 
-            {/* Step 2 */}
+            {/* Step 2 - FOTO MULTIPLE */}
             {step === 2 && (
               <div className="space-y-6">
                 <div>
@@ -389,54 +377,60 @@ export default function SellPage() {
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Foto Produk <span className="text-red-500">*</span>
+                    <span className="text-xs font-normal text-gray-500 ml-2">
+                      ({previewImages.length}/{MAX_IMAGES} foto)
+                    </span>
                   </label>
-                  
-                  {previewImage ? (
-                    <div className="relative group">
-                      <img 
-                        src={previewImage} 
-                        alt="Preview" 
-                        className="w-full h-64 object-cover rounded-lg border-2 border-gray-200"
-                        onLoad={() => console.log('✅ Image rendered successfully')}
-                        onError={() => console.log('❌ Image failed to render')}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          console.log('🗑️ Removing image');
-                          setPreviewImage(null);
-                          setImageFile(null);
-                        }}
-                        className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition"
-                      >
-                        <X size={20} />
-                      </button>
-                      <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
-                        <p className="text-sm text-green-700">✓ Foto berhasil diunggah</p>
-                        {imageFile && (
-                          <p className="text-xs text-green-600 mt-1">
-                            {imageFile.name} ({(imageFile.size / 1024).toFixed(0)} KB)
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <label className="block border-2 border-dashed border-green-300 rounded-lg p-8 text-center cursor-pointer hover:border-green-400 hover:bg-green-50 transition">
-                      <Paperclip size={48} className="mx-auto mb-3 text-gray-400" />
+
+                  {/* Upload Button */}
+                  {previewImages.length < MAX_IMAGES && (
+                    <label className="block border-2 border-dashed border-green-300 rounded-lg p-6 text-center cursor-pointer hover:border-green-400 hover:bg-green-50 transition">
+                      <ImageIcon size={48} className="mx-auto mb-3 text-gray-400" />
                       <p className="text-gray-700 font-medium mb-1">Klik untuk memilih foto</p>
-                      <p className="text-sm text-gray-500">JPG, JPEG, PNG • Maksimal 5MB</p>
+                      <p className="text-sm text-gray-500">JPG, JPEG, PNG • Maksimal 5MB per foto</p>
+                      <p className="text-xs text-gray-400 mt-1">Maksimal {MAX_IMAGES} foto</p>
                       <input
                         type="file"
                         accept="image/jpeg,image/jpg,image/png"
                         onChange={handleImageChange}
                         className="hidden"
-                        onClick={(e) => {
-                          console.log('📁 File input clicked');
-                          e.target.value = null; // Reset untuk bisa upload file yang sama
-                        }}
+                        multiple
                       />
                     </label>
                   )}
+
+                  {/* Preview Grid */}
+                  {previewImages.length > 0 && (
+                    <div className="mt-4 grid grid-cols-3 gap-4">
+                      {previewImages.map((preview, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={preview}
+                            alt={`Preview ${index + 1}`}
+                            className="w-full h-32 object-cover rounded-lg border-2 border-gray-200"
+                          />
+                          {index === 0 && (
+                            <span className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
+                              Utama
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => removeImage(index)}
+                            className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-xs text-blue-700">
+                      💡 <strong>Tips:</strong> Foto pertama akan menjadi foto utama. Tambahkan foto dari berbagai sudut untuk hasil terbaik.
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
